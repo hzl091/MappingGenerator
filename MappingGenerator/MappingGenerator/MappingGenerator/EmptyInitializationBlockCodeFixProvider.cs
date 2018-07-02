@@ -19,6 +19,7 @@ namespace MappingGenerator
     {
         private const string TitleForLocal = "Initialize with local variables";
         private const string TitleForLambda = "Initialize with lambda parameter";
+        private const string TitleForScaffolding = "Initialize with sample values";
 
         public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(EmptyInitializationBlockAnalyzer.DiagnosticId);
 
@@ -39,6 +40,7 @@ namespace MappingGenerator
             }
             
             context.RegisterCodeFix(CodeAction.Create(title: TitleForLocal, createChangedDocument: c => InitizalizeWithLocals(context.Document, objectInitializer, c), equivalenceKey: TitleForLocal), diagnostic);
+            context.RegisterCodeFix(CodeAction.Create(title: TitleForScaffolding, createChangedDocument: c => InitizalizeWithDefaults(context.Document, objectInitializer, c), equivalenceKey: TitleForScaffolding), diagnostic);
 
             var lambda = objectInitializer.Parent.FindContainer<LambdaExpressionSyntax>();
 
@@ -49,6 +51,13 @@ namespace MappingGenerator
                     context.RegisterCodeFix(CodeAction.Create(title: TitleForLambda, createChangedDocument: c => InitizalizeWithLambdaParameter(context.Document, lambda, objectInitializer, c), equivalenceKey: TitleForLambda), diagnostic);
                     break;
             }
+        }
+
+        private async Task<Document> InitizalizeWithDefaults(Document document, InitializerExpressionSyntax objectInitializer, CancellationToken cancellationToken)
+        {
+            var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
+            var mappingSourceFinder = new ScaffoldingSourceFinder(SyntaxGenerator.GetGenerator(document), semanticModel);
+            return await ReplaceEmptyInitializationBlock(document, objectInitializer, cancellationToken, semanticModel, mappingSourceFinder);
         }
 
         private async Task<Document> InitizalizeWithLocals(Document document, InitializerExpressionSyntax objectInitializer, CancellationToken cancellationToken)
